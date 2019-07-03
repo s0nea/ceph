@@ -178,16 +178,16 @@ class User(object):
         else:
             self.roles = roles
         if lastUpdate is None:
-            self.refreshLastUpdate()
+            self.refresh_last_update()
         else:
             self.lastUpdate = lastUpdate
 
-    def refreshLastUpdate(self):
+    def refresh_last_update(self):
         self.lastUpdate = int(time.time())
 
     def set_password(self, password):
         self.password = password_hash(password)
-        self.refreshLastUpdate()
+        self.refresh_last_update()
 
     def compare_password(self, password):
         """
@@ -202,18 +202,18 @@ class User(object):
 
     def set_roles(self, roles):
         self.roles = set(roles)
-        self.refreshLastUpdate()
+        self.refresh_last_update()
 
     def add_roles(self, roles):
         self.roles = self.roles.union(set(roles))
-        self.refreshLastUpdate()
+        self.refresh_last_update()
 
     def del_roles(self, roles):
         for role in roles:
             if role not in self.roles:
                 raise RoleNotInUser(role.name, self.username)
         self.roles.difference_update(set(roles))
-        self.refreshLastUpdate()
+        self.refresh_last_update()
 
     def authorize(self, scope, permissions):
         for role in self.roles:
@@ -314,7 +314,7 @@ class AccessControlDB(object):
                 return
             for _, user in self.users.items():
                 if role in user.roles:
-                    user.refreshLastUpdate()
+                    user.refresh_last_update()
 
     def save(self):
         with self.lock:
