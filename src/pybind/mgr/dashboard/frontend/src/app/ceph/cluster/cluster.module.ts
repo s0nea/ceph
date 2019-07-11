@@ -67,7 +67,6 @@ import { SilenceMatcherModalComponent } from './prometheus/silence-matcher-modal
     MgrModulesModule,
     TypeaheadModule.forRoot(),
     TimepickerModule.forRoot(),
-    BsDatepickerModule.forRoot(),
     NgBootstrapFormValidationModule
   ],
   declarations: [
