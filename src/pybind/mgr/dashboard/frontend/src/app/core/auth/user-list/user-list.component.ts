@@ -12,6 +12,7 @@ import { CdTableAction } from '../../../shared/models/cd-table-action';
 import { CdTableColumn } from '../../../shared/models/cd-table-column';
 import { CdTableSelection } from '../../../shared/models/cd-table-selection';
 import { Permission } from '../../../shared/models/permissions';
+import { CdDatePipe } from '../../../shared/pipes/cd-date.pipe';
 import { EmptyPipe } from '../../../shared/pipes/empty.pipe';
 import { AuthStorageService } from '../../../shared/services/auth-storage.service';
 import { NotificationService } from '../../../shared/services/notification.service';
@@ -45,6 +46,7 @@ export class UserListComponent implements OnInit {
     private authStorageService: AuthStorageService,
     private i18n: I18n,
     private urlBuilder: URLBuilderService,
+    private cdDatePipe: CdDatePipe,
     public actionLabels: ActionLabelsI18n
   ) {
     this.permission = this.authStorageService.getPermissions().user;
@@ -94,6 +96,12 @@ export class UserListComponent implements OnInit {
         prop: 'roles',
         flexGrow: 1,
         cellTemplate: this.userRolesTpl
+      },
+      {
+        name: this.i18n('Password expiry date'),
+        prop: 'pwdexpirydate',
+        flexGrow: 1,
+        pipe: this.cdDatePipe
       }
     ];
   }

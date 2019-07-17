@@ -73,6 +73,7 @@ export class UserFormComponent implements OnInit {
           updateOn: 'blur',
           validators: []
         }),
+        pwdexpirydate: new FormControl(''),
         email: new FormControl('', {
           validators: [Validators.email]
         }),
@@ -119,7 +120,7 @@ export class UserFormComponent implements OnInit {
   }
 
   setResponse(response: UserFormModel) {
-    ['username', 'name', 'email', 'roles'].forEach((key) =>
+    ['username', 'name', 'email', 'roles', 'pwdexpirydate'].forEach((key) =>
       this.userForm.get(key).setValue(response[key])
     );
   }

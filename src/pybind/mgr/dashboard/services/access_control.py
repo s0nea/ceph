@@ -10,10 +10,13 @@ import time
 
 import bcrypt
 
+from datetime import datetime, timedelta
+
 from mgr_module import CLIReadCommand, CLIWriteCommand
 
 from .. import mgr, logger
 from ..security import Scope, Permission
+from ..settings import Settings
 from ..exceptions import RoleAlreadyExists, RoleDoesNotExist, ScopeNotValid, \
                          PermissionNotValid, RoleIsAssociatedWithUser, \
                          UserAlreadyExists, UserDoesNotExist, ScopeNotInRole, \
@@ -181,13 +184,23 @@ class User(object):
             self.refresh_last_update()
         else:
             self.lastUpdate = lastUpdate
+        self.refresh_pwd_expiry_date()
 
     def refresh_last_update(self):
         self.lastUpdate = int(time.time())
 
+    def refresh_pwd_expiry_date(self):
+        if Settings.USER_PWD_DEFAULT_EXPIRY_SPAN > 0:
+            expiry_date = datetime.utcnow() + timedelta(
+                days=Settings.USER_PWD_DEFAULT_EXPIRY_SPAN)
+            self.pwd_expiry_date = datetime.timestamp(expiry_date)
+        else:
+            self.pwd_expiry_date = None
+
     def set_password(self, password):
         self.password = password_hash(password)
         self.refresh_last_update()
+        self.refresh_pwd_expiry_date()
 
     def compare_password(self, password):
         """
@@ -234,13 +247,19 @@ class User(object):
         return perms
 
     def to_dict(self):
+        pwd_expiry_date = None
+        if self.pwd_expiry_date:
+            pwd_expiry_date = datetime.utcfromtimestamp(self.pwd_expiry_date)
+            pwd_expiry_date = "{}Z".format(pwd_expiry_date.isoformat())
+
         return {
             'username': self.username,
             'password': self.password,
             'roles': sorted([r.name for r in self.roles]),
             'name': self.name,
             'email': self.email,
-            'lastUpdate': self.lastUpdate
+            'lastUpdate': self.lastUpdate,
+            'pwdexpirydate': pwd_expiry_date
         }
 
     @classmethod
