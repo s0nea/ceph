@@ -51,6 +51,9 @@ class Options(object):
     # iSCSI management settings
     ISCSI_API_SSL_VERIFICATION = (True, bool)
 
+    # user management settings
+    USER_PWD_DEFAULT_EXPIRY_SPAN = (0, int)
+
     @staticmethod
     def has_default_value(name):
         return getattr(Settings, name, None) is None or \

@@ -116,7 +116,8 @@ describe('UserFormComponent', () => {
         name: 'User 0',
         email: 'user0@email.com',
         roles: ['administrator'],
-        enabled: true
+        enabled: true,
+        pwdexpirydate: undefined
       };
       formHelper.setMultipleValues(user);
       formHelper.setValue('confirmpassword', user.password);
@@ -136,7 +137,8 @@ describe('UserFormComponent', () => {
       name: 'User 1',
       email: 'user1@email.com',
       roles: ['administrator'],
-      enabled: true
+      enabled: true,
+      pwdexpirydate: undefined
     };
     const roles = [
       {
