@@ -47,6 +47,11 @@ $form-feedback-font-size: 100%;
   }
 }
 
+// TODO: move to somewhere else later
+.no-margin-bottom alert .alert {
+  margin-bottom: 0;
+}
+
 /* Basics */
 html {
   background-color: $color-app-bg;

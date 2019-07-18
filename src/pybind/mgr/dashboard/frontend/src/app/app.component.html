@@ -1,4 +1,5 @@
 <block-ui>
+  <cd-pwd-expiry-panel *ngIf="!isLoginActive()"></cd-pwd-expiry-panel>
   <cd-navigation *ngIf="!isLoginActive()"></cd-navigation>
   <div class="container-fluid"
        [ngClass]="{'full-height':isLoginActive(), 'dashboard':isDashboardPage()} ">

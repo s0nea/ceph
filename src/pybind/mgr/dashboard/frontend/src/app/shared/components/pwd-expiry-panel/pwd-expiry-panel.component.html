@@ -1,0 +1,6 @@
+<cd-warning-panel i18n
+                  dismissible="true"
+                  class="no-margin-bottom"
+                  *ngIf="0 < days && days <= 10">
+  Your password will expire in <strong>{{ days }}</strong> days. Click
+  <a routerLink="/user-profile/edit" class="alert-link">here</a> to change it now.</cd-warning-panel>
