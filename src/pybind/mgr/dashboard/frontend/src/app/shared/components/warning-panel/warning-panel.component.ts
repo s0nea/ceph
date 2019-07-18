@@ -13,6 +13,8 @@ export class WarningPanelComponent {
    */
   @Input()
   title = 'Warning';
+  @Input()
+  dismissible = false;
 
   icons = Icons;
 }
