@@ -17,6 +17,7 @@ import { CdNotificationConfig } from '../models/cd-notification';
 import { FinishedTask } from '../models/finished-task';
 import { AuthStorageService } from './auth-storage.service';
 import { NotificationService } from './notification.service';
+import {PermanentNotificationService} from "./permanent-notification.service";
 
 @Injectable({
   providedIn: 'root'
@@ -25,7 +26,8 @@ export class ApiInterceptorService implements HttpInterceptor {
   constructor(
     private router: Router,
     private authStorageService: AuthStorageService,
-    public notificationService: NotificationService
+    public notificationService: NotificationService,
+    public permanentNotificationService: PermanentNotificationService
   ) {}
 
   intercept(request: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
@@ -88,7 +90,7 @@ export class ApiInterceptorService implements HttpInterceptor {
   }
 
   private prepareNotification(resp): number {
-    return this.notificationService.show(() => {
+    return this.permanentNotificationService.show(() => {
       let message = '';
       if (_.isPlainObject(resp.error) && _.isString(resp.error.detail)) {
         message = resp.error.detail; // Error was triggered by the backend.

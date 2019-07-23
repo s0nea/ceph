@@ -3,6 +3,12 @@ import { Icons } from '../enum/icons.enum';
 import { NotificationType } from '../enum/notification-type.enum';
 
 export class CdNotificationConfig {
+  static permNotificationConfig: Partial<IndividualConfig> = {
+    disableTimeOut: true,
+    closeButton: true,
+    positionClass: 'toast-top-full-width'
+  };
+
   applicationClass: string;
 
   private classes = {
