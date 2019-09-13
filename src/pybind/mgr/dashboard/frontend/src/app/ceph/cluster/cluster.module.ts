@@ -80,7 +80,6 @@ import { ServicesComponent } from './services/services.component';
     MgrModulesModule,
     TypeaheadModule.forRoot(),
     TimepickerModule.forRoot(),
-    BsDatepickerModule.forRoot(),
     NgBootstrapFormValidationModule,
     CephSharedModule
   ],
