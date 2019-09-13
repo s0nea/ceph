@@ -615,7 +615,7 @@ We provide a set of CLI commands to manage user accounts:
 
 - *Create User*::
 
-  $ ceph dashboard ac-user-create <username> [<password>] [<rolename>] [<name>] [<email>] [<enabled>]
+  $ ceph dashboard ac-user-create <username> [<password>] [<rolename>] [<name>] [<email>] [<enabled>] [<pwd_expiration_date>]
 
 - *Delete User*::
 
