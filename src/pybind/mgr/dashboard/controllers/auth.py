@@ -20,7 +20,11 @@ class Auth(RESTController):
     """
 
     def create(self, username, password):
-        user_perms = AuthManager.authenticate(username, password)
+        user_data = AuthManager.authenticate(username, password)
+        user_perms, pwd_expiration_date = None, None
+        if user_data:
+            user_perms, pwd_expiration_date = user_data.values()
+
         if user_perms is not None:
             logger.debug('Login successful')
             token = JwtManager.gen_token(username)
@@ -30,6 +34,7 @@ class Auth(RESTController):
                 'token': token,
                 'username': username,
                 'permissions': user_perms,
+                'pwdExpirationDate': pwd_expiration_date,
                 'sso': mgr.SSO_DB.protocol == 'saml2'
             }
 
