@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 
+import { CdPwdExpiryData } from '../models/cd-pwd-expiry-data';
 import { Permissions } from '../models/permissions';
 
 @Injectable({
@@ -8,10 +9,20 @@ import { Permissions } from '../models/permissions';
 export class AuthStorageService {
   constructor() {}
 
-  set(username: string, token: string, permissions: object = {}, sso = false) {
+  set(
+    username: string,
+    token: string,
+    permissions: object = {},
+    sso = false,
+    pwdExpiryData: object = {}
+  ) {
     localStorage.setItem('dashboard_username', username);
     localStorage.setItem('access_token', token);
     localStorage.setItem('dashboard_permissions', JSON.stringify(new Permissions(permissions)));
+    localStorage.setItem(
+      'user_pwd_expiry_data',
+      JSON.stringify(new CdPwdExpiryData(pwdExpiryData))
+    );
     localStorage.setItem('sso', String(sso));
   }
 
@@ -35,6 +46,12 @@ export class AuthStorageService {
   getPermissions(): Permissions {
     return JSON.parse(
       localStorage.getItem('dashboard_permissions') || JSON.stringify(new Permissions({}))
+    );
+  }
+
+  getPwdExpiryData(): CdPwdExpiryData {
+    return JSON.parse(
+      localStorage.getItem('user_pwd_expiry_data') || JSON.stringify(new CdPwdExpiryData({}))
     );
   }
 

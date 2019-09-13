@@ -11,16 +11,19 @@ import threading
 import time
 import re
 
+from datetime import datetime, timedelta
+
 import bcrypt
 
 from mgr_module import CLIReadCommand, CLIWriteCommand
 
 from .. import mgr, logger
 from ..security import Scope, Permission
+from ..settings import Settings
 from ..exceptions import RoleAlreadyExists, RoleDoesNotExist, ScopeNotValid, \
                          PermissionNotValid, RoleIsAssociatedWithUser, \
                          UserAlreadyExists, UserDoesNotExist, ScopeNotInRole, \
-                         RoleNotInUser
+                         RoleNotInUser, PwdExpiryDateNotValid
 
 
 # password hashing algorithm
@@ -235,7 +238,7 @@ SYSTEM_ROLES = {
 
 class User(object):
     def __init__(self, username, password, name=None, email=None, roles=None,
-                 last_update=None, enabled=True):
+                 last_update=None, enabled=True, pwd_expiry_date=None):
         self.username = username
         self.password = password
         self.name = name
@@ -249,9 +252,20 @@ class User(object):
         else:
             self.last_update = last_update
         self._enabled = enabled
+        self.pwd_expiry_date = pwd_expiry_date
+        if self.pwd_expiry_date is None:
+            self.refresh_pwd_expiry_date()
 
     def refresh_last_update(self):
         self.last_update = int(time.time())
+
+    def refresh_pwd_expiry_date(self):
+        if Settings.USER_PWD_DEFAULT_EXPIRY_SPAN > 0:
+            expiry_date = datetime.utcnow() + timedelta(
+                days=Settings.USER_PWD_DEFAULT_EXPIRY_SPAN)
+            # python3
+            # self.pwd_expiry_date = int(datetime.timestamp(expiry_date))
+            self.pwd_expiry_date = int(time.mktime(expiry_date.timetuple()))
 
     @property
     def enabled(self):
@@ -268,6 +282,7 @@ class User(object):
     def set_password_hash(self, hashed_password):
         self.password = hashed_password
         self.refresh_last_update()
+        self.refresh_pwd_expiry_date()
 
     def compare_password(self, password):
         """
@@ -279,6 +294,14 @@ class User(object):
         """
         pass_hash = password_hash(password, salt_password=self.password)
         return pass_hash == self.password
+
+    def is_pwd_expired(self):
+        if self.pwd_expiry_date:
+            # python3
+            # current_time = datetime.timestamp(datetime.utcnow())
+            current_time = int(time.mktime(datetime.utcnow().timetuple()))
+            return self.pwd_expiry_date < current_time
+        return False
 
     def set_roles(self, roles):
         self.roles = set(roles)
@@ -321,14 +344,15 @@ class User(object):
             'name': self.name,
             'email': self.email,
             'lastUpdate': self.last_update,
-            'enabled': self.enabled
+            'enabled': self.enabled,
+            'pwdExpiryDate': self.pwd_expiry_date
         }
 
     @classmethod
     def from_dict(cls, u_dict, roles):
         return User(u_dict['username'], u_dict['password'], u_dict['name'],
                     u_dict['email'], {roles[r] for r in u_dict['roles']},
-                    u_dict['lastUpdate'], u_dict['enabled'])
+                    u_dict['lastUpdate'], u_dict['enabled'], u_dict['pwdExpiryDate'])
 
 
 class AccessControlDB(object):
@@ -368,12 +392,18 @@ class AccessControlDB(object):
 
             del self.roles[name]
 
-    def create_user(self, username, password, name, email, enabled=True):
+    def create_user(self, username, password, name, email, enabled=True, pwd_expiry_date=None):
         logger.debug("AC: creating user: username=%s", username)
         with self.lock:
             if username in self.users:
                 raise UserAlreadyExists(username)
-            user = User(username, password_hash(password), name, email, enabled=enabled)
+            # python3
+            # if pwd_expiry_date and (pwd_expiry_date < datetime.timestamp(datetime.utcnow())):
+            if pwd_expiry_date and \
+               (pwd_expiry_date < int(time.mktime(datetime.utcnow().timetuple()))):
+                raise PwdExpiryDateNotValid()
+            user = User(username, password_hash(password), name, email, enabled=enabled,
+                        pwd_expiry_date=pwd_expiry_date)
             self.users[username] = user
             return user
 
@@ -613,10 +643,11 @@ def ac_user_show_cmd(_, username=None):
                  'name=rolename,type=CephString,req=false '
                  'name=name,type=CephString,req=false '
                  'name=email,type=CephString,req=false '
-                 'name=enabled,type=CephBool,req=false',
+                 'name=enabled,type=CephBool,req=false '
+                 'name=pwd_expiry_date,type=CephInt,req=false',
                  'Create a user')
 def ac_user_create_cmd(_, username, password=None, rolename=None, name=None,
-                       email=None, enabled=True):
+                       email=None, enabled=True, pwd_expiry_date=None):
     try:
         role = mgr.ACCESS_CTRL_DB.get_role(rolename) if rolename else None
     except RoleDoesNotExist as ex:
@@ -625,7 +656,8 @@ def ac_user_create_cmd(_, username, password=None, rolename=None, name=None,
         role = SYSTEM_ROLES[rolename]
 
     try:
-        user = mgr.ACCESS_CTRL_DB.create_user(username, password, name, email, enabled)
+        user = mgr.ACCESS_CTRL_DB.create_user(username, password, name, email,
+                                              enabled, pwd_expiry_date)
     except UserAlreadyExists as ex:
         return -errno.EEXIST, '', str(ex)
 
@@ -809,8 +841,10 @@ class LocalAuthenticator(object):
         try:
             user = mgr.ACCESS_CTRL_DB.get_user(username)
             if user.password:
-                if user.enabled and user.compare_password(password):
-                    return user.permissions_dict()
+                if user.enabled and user.compare_password(password) \
+                   and not user.is_pwd_expired():
+                    return {'permissions': user.permissions_dict(),
+                            'pwdExpiryDate': user.pwd_expiry_date}
         except UserDoesNotExist:
             logger.debug("User '%s' does not exist", username)
         return None

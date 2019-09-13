@@ -4,13 +4,16 @@ from __future__ import absolute_import
 
 import time
 
+from datetime import datetime, timedelta
+
 from .helper import DashboardTestCase
 
 
 class UserTest(DashboardTestCase):
 
     @classmethod
-    def _create_user(cls, username=None, password=None, name=None, email=None, roles=None, enabled=True):
+    def _create_user(cls, username=None, password=None, name=None, email=None, roles=None,
+                     enabled=True, pwd_expiry_date=None):
         data = {}
         if username:
             data['username'] = username
@@ -22,13 +25,16 @@ class UserTest(DashboardTestCase):
             data['email'] = email
         if roles:
             data['roles'] = roles
+        if pwd_expiry_date:
+            data['pwdExpiryDate'] = pwd_expiry_date
         data['enabled'] = enabled
         cls._post("/api/user", data)
 
     @classmethod
-    def _reset_login_to_admin(cls, username):
+    def _reset_login_to_admin(cls, username=None):
         cls.logout()
-        cls.delete_user(username)
+        if username:
+            cls.delete_user(username)
         cls.login('admin', 'admin')
 
     def test_crud_user(self):
@@ -48,7 +54,8 @@ class UserTest(DashboardTestCase):
             'email': 'my@email.com',
             'roles': ['administrator'],
             'lastUpdate': user['lastUpdate'],
-            'enabled': True
+            'enabled': True,
+            'pwdExpiryDate': None
         })
 
         self._put('/api/user/user1', {
@@ -64,7 +71,8 @@ class UserTest(DashboardTestCase):
             'email': 'mynew@email.com',
             'roles': ['block-manager'],
             'lastUpdate': user['lastUpdate'],
-            'enabled': True
+            'enabled': True,
+            'pwdExpiryDate': None
         })
 
         self._delete('/api/user/user1')
@@ -93,7 +101,8 @@ class UserTest(DashboardTestCase):
             'email': 'klara@musterfrau.com',
             'roles': ['administrator'],
             'lastUpdate': user['lastUpdate'],
-            'enabled': False
+            'enabled': False,
+            'pwdExpiryDate': None
         })
 
         self._delete('/api/user/klara')
@@ -111,7 +120,8 @@ class UserTest(DashboardTestCase):
             'email': None,
             'roles': ['administrator'],
             'lastUpdate': user['lastUpdate'],
-            'enabled': True
+            'enabled': True,
+            'pwdExpiryDate': None
         }])
 
     def test_create_user_already_exists(self):
@@ -247,3 +257,99 @@ class UserTest(DashboardTestCase):
         self.assertError(code='invalid_credentials', component='auth')
         self.delete_user('test1')
         self.login('admin', 'admin')
+
+    def test_create_user_with_pwd_expiry_date(self):
+        # python3
+        # future_date = int(datetime.timestamp(datetime.utcnow() + timedelta(days=10)))
+        future_date = datetime.utcnow() + timedelta(days=10)
+        future_date = int(time.mktime(future_date.timetuple()))
+
+        self._create_user(username='user1',
+                          password='mypassword10#',
+                          name='My Name',
+                          email='my@email.com',
+                          roles=['administrator'],
+                          pwd_expiry_date=future_date)
+        self.assertStatus(201)
+        user = self.jsonBody()
+
+        self._get('/api/user/user1')
+        self.assertStatus(200)
+        self.assertJsonBody({
+            'username': 'user1',
+            'name': 'My Name',
+            'email': 'my@email.com',
+            'roles': ['administrator'],
+            'lastUpdate': user['lastUpdate'],
+            'enabled': True,
+            'pwdExpiryDate': future_date
+        })
+        self._delete('/api/user/user1')
+
+    def test_create_with_pwd_expiry_date_not_valid(self):
+        # python3
+        # past_date = int(datetime.timestamp(datetime.utcnow() - timedelta(days=10)))
+        past_date = datetime.utcnow() - timedelta(days=10)
+        past_date = int(time.mktime(past_date.timetuple()))
+
+        self._create_user(username='user1',
+                          password='mypassword10#',
+                          name='My Name',
+                          email='my@email.com',
+                          roles=['administrator'],
+                          pwd_expiry_date=past_date)
+        self.assertStatus(400)
+        self.assertError(code='pwd_past_expiry_date', component='user')
+
+    def test_create_with_default_expiry_date(self):
+        # python3
+        # future_date_1 = int(datetime.timestamp(datetime.utcnow() + timedelta(days=10)))
+        # future_date_2 = int(datetime.timestamp(datetime.utcnow() + timedelta(days=11)))
+        future_date_1 = datetime.utcnow() + timedelta(days=10)
+        future_date_1 = int(time.mktime(future_date_1.timetuple()))
+        future_date_2 = datetime.utcnow() + timedelta(days=11)
+        future_date_2 = int(time.mktime(future_date_2.timetuple()))
+
+        self._ceph_cmd(['dashboard', 'set-user-pwd-default-expiry-span', '10'])
+        self._create_user(username='user1',
+                          password='mypassword10#',
+                          name='My Name',
+                          email='my@email.com',
+                          roles=['administrator'])
+        self.assertStatus(201)
+
+        user = self._get('/api/user/user1')
+        self.assertStatus(200)
+        self.assertIsNotNone(user['pwdExpiryDate'])
+        self.assertGreater(user['pwdExpiryDate'], future_date_1)
+        self.assertLess(user['pwdExpiryDate'], future_date_2)
+
+        self._delete('/api/user/user1')
+        self._ceph_cmd(['dashboard', 'set-user-pwd-default-expiry-span', '0'])
+
+    def test_pwd_expiry_date_update(self):
+        self._ceph_cmd(['dashboard', 'set-user-pwd-default-expiry-span', '10'])
+        self._create_user(username='user1',
+                          password='mypassword10#',
+                          name='My Name',
+                          email='my@email.com',
+                          roles=['administrator'])
+        self.assertStatus(201)
+
+        user_1 = self._get('/api/user/user1')
+        self.assertStatus(200)
+
+        self.login('user1', 'mypassword10#')
+        self._post('/api/user/user1/change_password', {
+            'old_password': 'mypassword10#',
+            'new_password': 'newpassword01#'
+        })
+        self.assertStatus(200)
+        self._reset_login_to_admin()
+
+        user_2 = self._get('/api/user/user1')
+        self.assertStatus(200)
+        self.assertLess(user_1['pwdExpiryDate'], user_2['pwdExpiryDate'])
+
+        self._delete('/api/user/user1')
+        self._ceph_cmd(['dashboard', 'set-user-pwd-default-expiry-span', '0'])

@@ -47,6 +47,11 @@ export class UserFormComponent implements OnInit {
   passwordStrengthLevel: string;
   passwordStrengthDescription: string;
   icons = Icons;
+  minDate: Date;
+  bsConfig = {
+    dateInputFormat: 'YYYY-MM-DD',
+    containerClass: 'theme-default'
+  };
 
   constructor(
     private authService: AuthService,
@@ -85,6 +90,7 @@ export class UserFormComponent implements OnInit {
           updateOn: 'blur',
           validators: []
         }),
+        pwdExpiryDate: new FormControl(''),
         email: new FormControl('', {
           validators: [Validators.email]
         }),
@@ -106,6 +112,7 @@ export class UserFormComponent implements OnInit {
     } else {
       this.action = this.actionLabels.CREATE;
     }
+    this.minDate = new Date();
 
     this.roleService.list().subscribe((roles: Array<UserFormRoleModel>) => {
       this.allRoles = _.map(roles, (role) => {
@@ -115,6 +122,13 @@ export class UserFormComponent implements OnInit {
     });
     if (this.mode === this.userFormMode.editing) {
       this.initEdit();
+    } else {
+      const pwdExpiryData = this.authStorageService.getPwdExpiryData();
+      if (pwdExpiryData.pwdDefaultExpirySpan > 0) {
+        const expiryDate = new Date();
+        expiryDate.setDate(this.minDate.getDate() + pwdExpiryData.pwdDefaultExpirySpan);
+        this.userForm.get('pwdExpiryDate').setValue(expiryDate);
+      }
     }
   }
 
@@ -137,6 +151,10 @@ export class UserFormComponent implements OnInit {
     ['username', 'name', 'email', 'roles', 'enabled'].forEach((key) =>
       this.userForm.get(key).setValue(response[key])
     );
+    const expiryDate = response['pwdExpiryDate'];
+    if (expiryDate) {
+      this.userForm.get('pwdExpiryDate').setValue(new Date(expiryDate * 1000));
+    }
   }
 
   getRequest(): UserFormModel {
@@ -144,6 +162,10 @@ export class UserFormComponent implements OnInit {
     ['username', 'password', 'name', 'email', 'roles', 'enabled'].forEach(
       (key) => (userFormModel[key] = this.userForm.get(key).value)
     );
+    const expiryDate = this.userForm.get('pwdExpiryDate').value;
+    if (expiryDate) {
+      userFormModel['pwdExpiryDate'] = Number(expiryDate) / 1000;
+    }
     return userFormModel;
   }
 
@@ -245,6 +267,10 @@ export class UserFormComponent implements OnInit {
         this.userForm.setErrors({ cdSubmitButton: true });
       }
     );
+  }
+
+  clearExpiryDate() {
+    this.userForm.get('pwdExpiryDate').setValue(undefined);
   }
 
   submit() {

@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
 
+from datetime import datetime
+
 import cherrypy
 
 from . import BaseController, ApiController, RESTController, Endpoint
 from .. import mgr
 from ..exceptions import DashboardException, UserAlreadyExists, \
-    UserDoesNotExist
+    UserDoesNotExist, PwdExpiryDateNotValid
 from ..security import Scope
 from ..services.access_control import SYSTEM_ROLES, PasswordCheck
 from ..services.auth import JwtManager
@@ -75,7 +77,7 @@ class User(RESTController):
         return User._user_to_dict(user)
 
     def create(self, username=None, password=None, name=None, email=None,
-               roles=None, enabled=True):
+               roles=None, enabled=True, pwdExpiryDate=None):
         if not username:
             raise DashboardException(msg='Username is required',
                                      code='username_required',
@@ -85,13 +87,20 @@ class User(RESTController):
             user_roles = User._get_user_roles(roles)
         if password:
             check_password_complexity(password, username)
+
         try:
             user = mgr.ACCESS_CTRL_DB.create_user(username, password, name,
-                                                  email, enabled)
+                                                  email, enabled, pwdExpiryDate)
         except UserAlreadyExists:
             raise DashboardException(msg='Username already exists',
                                      code='username_already_exists',
                                      component='user')
+        except PwdExpiryDateNotValid:
+            raise DashboardException(msg='Password expiry date must not be in '
+                                         'the past',
+                                     code='pwd_past_expiry_date',
+                                     component='user')
+
         if user_roles:
             user.set_roles(user_roles)
         mgr.ACCESS_CTRL_DB.save()
@@ -110,7 +119,7 @@ class User(RESTController):
         mgr.ACCESS_CTRL_DB.save()
 
     def set(self, username, password=None, name=None, email=None, roles=None,
-            enabled=None):
+            enabled=None, pwdExpiryDate=None):
         if JwtManager.get_username() == username and enabled is False:
             raise DashboardException(msg='You are not allowed to disable your user',
                                      code='cannot_disable_current_user',
@@ -126,10 +135,15 @@ class User(RESTController):
         if password:
             check_password_complexity(password, username)
             user.set_password(password)
+        if pwdExpiryDate and (pwdExpiryDate < datetime.timestamp(datetime.utcnow())):
+            raise DashboardException(
+                msg='Password expiry date must not be in the past',
+                code='pwd_past_expiry_date', component='user')
         user.name = name
         user.email = email
         if enabled is not None:
             user.enabled = enabled
+        user.pwd_expiry_date = pwdExpiryDate
         user.set_roles(user_roles)
         mgr.ACCESS_CTRL_DB.save()
         return User._user_to_dict(user)

@@ -7,6 +7,7 @@ from . import ApiController, RESTController
 from .. import logger, mgr
 from ..exceptions import DashboardException
 from ..services.auth import AuthManager, JwtManager
+from ..settings import Settings
 
 
 @ApiController('/auth', secure=False)
@@ -16,7 +17,11 @@ class Auth(RESTController):
     """
 
     def create(self, username, password):
-        user_perms = AuthManager.authenticate(username, password)
+        user_data = AuthManager.authenticate(username, password)
+        user_perms, pwd_expiry_date = None, None
+        if user_data:
+            user_perms, pwd_expiry_date = user_data.values()
+
         if user_perms is not None:
             logger.debug('Login successful')
             token = JwtManager.gen_token(username)
@@ -26,6 +31,7 @@ class Auth(RESTController):
                 'token': token,
                 'username': username,
                 'permissions': user_perms,
+                'pwdExpiryData': self._get_pwd_expiry_data(pwd_expiry_date),
                 'sso': mgr.SSO_DB.protocol == 'saml2'
             }
 
@@ -33,6 +39,17 @@ class Auth(RESTController):
         raise DashboardException(msg='Invalid credentials',
                                  code='invalid_credentials',
                                  component='auth')
+
+    def _get_pwd_expiry_data(self, pwd_expiry_date):
+        if not pwd_expiry_date:
+            return None
+
+        return {
+            'pwd_expiry_date': pwd_expiry_date,
+            'user_pwd_expiry_warning_1': Settings.USER_PWD_EXPIRY_WARNING_1,
+            'user_pwd_expiry_warning_2': Settings.USER_PWD_EXPIRY_WARNING_2,
+            'user_pwd_default_expiry_span': Settings.USER_PWD_DEFAULT_EXPIRY_SPAN
+        }
 
     @RESTController.Collection('POST')
     def logout(self):

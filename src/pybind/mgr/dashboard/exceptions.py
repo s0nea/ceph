@@ -103,5 +103,11 @@ class RoleNotInUser(Exception):
             .format(rolename, username))
 
 
+class PwdExpiryDateNotValid(Exception):
+    def __init__(self):
+        super(PwdExpiryDateNotValid, self).__init__(
+            "The password expiry date must not be in the past")
+
+
 class GrafanaError(Exception):
     pass

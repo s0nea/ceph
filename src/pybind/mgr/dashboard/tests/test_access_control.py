@@ -7,6 +7,8 @@ import json
 import time
 import unittest
 
+from datetime import datetime, timedelta
+
 from . import CmdException, CLICommandTestMixin
 from .. import mgr
 from ..security import Scope, Permission
@@ -70,7 +72,7 @@ class AccessControlTest(unittest.TestCase, CLICommandTestMixin):
 
     def validate_persistent_user(self, username, roles, password=None,
                                  name=None, email=None, last_update=None,
-                                 enabled=True):
+                                 enabled=True, pwdExpiryDate=None):
         db = self.load_persistent_db()
         self.assertIn('users', db)
         self.assertIn(username, db['users'])
@@ -84,6 +86,8 @@ class AccessControlTest(unittest.TestCase, CLICommandTestMixin):
             self.assertEqual(db['users'][username]['email'], email)
         if last_update:
             self.assertEqual(db['users'][username]['lastUpdate'], last_update)
+        if pwdExpiryDate:
+            self.assertEqual(db['users'][username]['pwdExpiryDate'], pwdExpiryDate)
         self.assertEqual(db['users'][username]['enabled'], enabled)
 
     def validate_persistent_no_user(self, username):
@@ -271,17 +275,18 @@ class AccessControlTest(unittest.TestCase, CLICommandTestMixin):
         self.assertEqual(str(ctx.exception),
                          "Cannot update system role 'read-only'")
 
-    def test_create_user(self, username='admin', rolename=None, enabled=True):
+    def test_create_user(self, username='admin', rolename=None, enabled=True, pwdExpiryDate=None):
         user = self.exec_cmd('ac-user-create', username=username,
                              rolename=rolename, password='admin',
                              name='{} User'.format(username),
                              email='{}@user.com'.format(username),
-                             enabled=enabled)
+                             enabled=enabled, pwd_expiry_date=pwdExpiryDate)
 
         pass_hash = password_hash('admin', user['password'])
         self.assertDictEqual(user, {
             'username': username,
             'password': pass_hash,
+            'pwdExpiryDate': pwdExpiryDate,
             'lastUpdate': user['lastUpdate'],
             'name': '{} User'.format(username),
             'email': '{}@user.com'.format(username),
@@ -296,6 +301,11 @@ class AccessControlTest(unittest.TestCase, CLICommandTestMixin):
 
     def test_create_disabled_user(self):
         self.test_create_user(enabled=False)
+
+    def test_create_user_pwd_expiry_date(self):
+        expiry_date = datetime.utcnow() + timedelta(days=10)
+        expiry_date = int(time.mktime(expiry_date.timetuple()))
+        self.test_create_user(pwdExpiryDate=expiry_date)
 
     def test_create_user_with_role(self):
         self.test_add_role_scope_perms()
@@ -487,6 +497,7 @@ class AccessControlTest(unittest.TestCase, CLICommandTestMixin):
             'username': 'admin',
             'lastUpdate': user['lastUpdate'],
             'password': pass_hash,
+            'pwdExpiryDate': None,
             'name': 'admin User',
             'email': 'admin@user.com',
             'roles': ['block-manager', 'pool-manager'],
@@ -528,6 +539,7 @@ class AccessControlTest(unittest.TestCase, CLICommandTestMixin):
         self.assertDictEqual(user, {
             'username': 'admin',
             'password': pass_hash,
+            'pwdExpiryDate': None,
             'name': 'Admin Name',
             'email': 'admin@admin.com',
             'lastUpdate': user['lastUpdate'],
@@ -554,6 +566,7 @@ class AccessControlTest(unittest.TestCase, CLICommandTestMixin):
         self.assertDictEqual(user, {
             'username': 'admin',
             'password': pass_hash,
+            'pwdExpiryDate': None,
             'name': 'admin User',
             'email': 'admin@user.com',
             'lastUpdate': user['lastUpdate'],
@@ -581,6 +594,7 @@ class AccessControlTest(unittest.TestCase, CLICommandTestMixin):
         self.assertDictEqual(user, {
             'username': 'admin',
             'password': pass_hash,
+            'pwdExpiryDate': None,
             'name': 'admin User',
             'email': 'admin@user.com',
             'lastUpdate': user['lastUpdate'],
@@ -617,6 +631,7 @@ class AccessControlTest(unittest.TestCase, CLICommandTestMixin):
         self.assertDictEqual(user, {
             'username': 'admin',
             'password': pass_hash,
+            'pwdExpiryDate': None,
             'name': None,
             'email': None,
             'lastUpdate': user['lastUpdate'],
@@ -635,6 +650,7 @@ class AccessControlTest(unittest.TestCase, CLICommandTestMixin):
         self.assertDictEqual(user, {
             'username': 'admin',
             'password': pass_hash,
+            'pwdExpiryDate': None,
             'name': 'admin User',
             'email': 'admin@user.com',
             'lastUpdate': user['lastUpdate'],
@@ -652,6 +668,7 @@ class AccessControlTest(unittest.TestCase, CLICommandTestMixin):
                         "username": "admin",
                         "password":
                 "$2b$12$sd0Az7mm3FaJl8kN3b/xwOuztaN0sWUwC1SJqjM4wcDw/s5cmGbLK",
+                        "pwdExpiryDate": null,
                         "roles": ["block-manager", "test_role"],
                         "name": "admin User",
                         "email": "admin@user.com",
@@ -689,6 +706,7 @@ class AccessControlTest(unittest.TestCase, CLICommandTestMixin):
             'lastUpdate': user['lastUpdate'],
             'password':
                 "$2b$12$sd0Az7mm3FaJl8kN3b/xwOuztaN0sWUwC1SJqjM4wcDw/s5cmGbLK",
+            'pwdExpiryDate': None,
             'name': 'admin User',
             'email': 'admin@user.com',
             'roles': ['block-manager', 'test_role'],
@@ -706,6 +724,7 @@ class AccessControlTest(unittest.TestCase, CLICommandTestMixin):
                         "username": "admin",
                         "password":
                 "$2b$12$sd0Az7mm3FaJl8kN3b/xwOuztaN0sWUwC1SJqjM4wcDw/s5cmGbLK",
+                        "pwdExpiryDate": null,
                         "roles": ["block-manager", "test_role"],
                         "name": "admin User",
                         "email": "admin@user.com",
@@ -744,6 +763,66 @@ class AccessControlTest(unittest.TestCase, CLICommandTestMixin):
             'lastUpdate': user['lastUpdate'],
             'password':
                 "$2b$12$sd0Az7mm3FaJl8kN3b/xwOuztaN0sWUwC1SJqjM4wcDw/s5cmGbLK",
+            'pwdExpiryDate': None,
+            'name': 'admin User',
+            'email': 'admin@user.com',
+            'roles': ['block-manager', 'test_role'],
+            'enabled': True
+        })
+
+    def test_load_v3(self):
+        """
+        The `pwdExpiryDate` attribute of a user has been added in v3
+        """
+        expiry_date = datetime.utcnow() + timedelta(days=10)
+        expiry_date = int(time.mktime(expiry_date.timetuple()))
+        self.CONFIG_KEY_DICT['accessdb_v1'] = '''
+            {{
+                "users": {{
+                    "admin": {{
+                        "username": "admin",
+                        "password":
+                "$2b$12$sd0Az7mm3FaJl8kN3b/xwOuztaN0sWUwC1SJqjM4wcDw/s5cmGbLK",
+                        "pwdExpiryDate": {},
+                        "roles": ["block-manager", "test_role"],
+                        "name": "admin User",
+                        "email": "admin@user.com",
+                        "lastUpdate": {},
+                        "enabled": true
+                    }}
+                }},
+                "roles": {{
+                    "test_role": {{
+                        "name": "test_role",
+                        "description": "Test Role",
+                        "scopes_permissions": {{
+                            "{}": ["{}", "{}"],
+                            "{}": ["{}"]
+                        }}
+                    }}
+                }},
+                "version": 1
+            }}
+        '''.format(expiry_date, int(round(time.time())), Scope.ISCSI, Permission.READ,
+                   Permission.UPDATE, Scope.POOL, Permission.CREATE)
+
+        load_access_control_db()
+        role = self.exec_cmd('ac-role-show', rolename="test_role")
+        self.assertDictEqual(role, {
+            'name': 'test_role',
+            'description': "Test Role",
+            'scopes_permissions': {
+                Scope.ISCSI: [Permission.READ, Permission.UPDATE],
+                Scope.POOL: [Permission.CREATE]
+            }
+        })
+        user = self.exec_cmd('ac-user-show', username="admin")
+        self.assertDictEqual(user, {
+            'username': 'admin',
+            'lastUpdate': user['lastUpdate'],
+            'password':
+                "$2b$12$sd0Az7mm3FaJl8kN3b/xwOuztaN0sWUwC1SJqjM4wcDw/s5cmGbLK",
+            'pwdExpiryDate': expiry_date,
             'name': 'admin User',
             'email': 'admin@user.com',
             'roles': ['block-manager', 'test_role'],
@@ -761,6 +840,7 @@ class AccessControlTest(unittest.TestCase, CLICommandTestMixin):
             'lastUpdate': user['lastUpdate'],
             'password':
                 "$2b$12$sd0Az7mm3FaJl8kN3b/xwOuztaN0sWUwC1SJqjM4wcDw/s5cmGbLK",
+            'pwdExpiryDate': None,
             'name': None,
             'email': None,
             'roles': ['administrator'],
