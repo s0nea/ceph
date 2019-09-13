@@ -16,6 +16,7 @@ import { Icons } from '../../../shared/enum/icons.enum';
 import { NotificationType } from '../../../shared/enum/notification-type.enum';
 import { CdFormGroup } from '../../../shared/forms/cd-form-group';
 import { CdValidators } from '../../../shared/forms/cd-validators';
+import { CdPwdExpirationSettings } from '../../../shared/models/cd-pwd-expiration-settings';
 import { AuthStorageService } from '../../../shared/services/auth-storage.service';
 import { NotificationService } from '../../../shared/services/notification.service';
 import { UserChangePasswordService } from '../../../shared/services/user-change-password.service';
@@ -47,6 +48,12 @@ export class UserFormComponent implements OnInit {
   passwordStrengthLevel: string;
   passwordStrengthDescription: string;
   icons = Icons;
+  minDate: Date;
+  bsConfig = {
+    dateInputFormat: 'YYYY-MM-DD',
+    containerClass: 'theme-default'
+  };
+  pwdExpirationSettings: CdPwdExpirationSettings;
 
   constructor(
     private authService: AuthService,
@@ -61,9 +68,13 @@ export class UserFormComponent implements OnInit {
     public actionLabels: ActionLabelsI18n,
     private userChangePasswordService: UserChangePasswordService
   ) {
+    console.log('constructor');
     this.resource = this.i18n('user');
-    this.createForm();
     this.messages = new SelectMessages({ empty: this.i18n('There are no roles.') }, this.i18n);
+    this.authService.pwdExpirationSettings().subscribe((pwdExpirationSettings) => {
+      this.pwdExpirationSettings = pwdExpirationSettings;
+      this.createForm();
+    });
   }
 
   createForm() {
@@ -85,6 +96,7 @@ export class UserFormComponent implements OnInit {
           updateOn: 'blur',
           validators: []
         }),
+        pwdExpirationDate: new FormControl(''),
         email: new FormControl('', {
           validators: [Validators.email]
         }),
@@ -100,12 +112,14 @@ export class UserFormComponent implements OnInit {
   }
 
   ngOnInit() {
+    console.log('ngOnInit');
     if (this.router.url.startsWith('/user-management/users/edit')) {
       this.mode = this.userFormMode.editing;
       this.action = this.actionLabels.EDIT;
     } else {
       this.action = this.actionLabels.CREATE;
     }
+    this.minDate = new Date();
 
     this.roleService.list().subscribe((roles: Array<UserFormRoleModel>) => {
       this.allRoles = _.map(roles, (role) => {
@@ -113,8 +127,17 @@ export class UserFormComponent implements OnInit {
         return role;
       });
     });
+
     if (this.mode === this.userFormMode.editing) {
       this.initEdit();
+    } else {
+      if (this.pwdExpirationSettings.pwdExpirationSpan > 0) {
+        const expirationDate = new Date();
+        expirationDate.setDate(
+          this.minDate.getDate() + this.pwdExpirationSettings.pwdExpirationSpan
+        );
+        this.userForm.get('pwdExpirationDate').setValue(expirationDate);
+      }
     }
   }
 
@@ -137,6 +160,10 @@ export class UserFormComponent implements OnInit {
     ['username', 'name', 'email', 'roles', 'enabled'].forEach((key) =>
       this.userForm.get(key).setValue(response[key])
     );
+    const expirationDate = response['pwdExpirationDate'];
+    if (expirationDate) {
+      this.userForm.get('pwdExpirationDate').setValue(new Date(expirationDate * 1000));
+    }
   }
 
   getRequest(): UserFormModel {
@@ -144,6 +171,14 @@ export class UserFormComponent implements OnInit {
     ['username', 'password', 'name', 'email', 'roles', 'enabled'].forEach(
       (key) => (userFormModel[key] = this.userForm.get(key).value)
     );
+    const expirationDate = this.userForm.get('pwdExpirationDate').value;
+    if (expirationDate) {
+      if (this.mode !== this.userFormMode.editing ||
+        this.response.pwdExpirationDate !== expirationDate) {
+        expirationDate.setHours(23, 59, 59);
+      }
+      userFormModel['pwdExpirationDate'] = Number(expirationDate) / 1000;
+    }
     return userFormModel;
   }
 
@@ -190,6 +225,17 @@ export class UserFormComponent implements OnInit {
       this.passwordStrengthDescription
     ] = this.userChangePasswordService.checkPasswordComplexity(password);
     return password && this.passwordStrengthLevel === 'passwordStrengthLevel0';
+  }
+
+  showExpirationDateField() {
+    console.log('showExpirationDateField');
+    console.log(this.userForm.getValue('pwdExpirationDate'));
+    console.log(this.pwdExpirationSettings.pwdExpirationSpan);
+    const ret = this.userForm.getValue('pwdExpirationDate') === undefined ||
+      this.userForm.getValue('pwdExpirationDate') > 0 ||
+      this.pwdExpirationSettings.pwdExpirationSpan > 0;
+    console.log(ret);
+    return ret;
   }
 
   public isCurrentUser(): boolean {
@@ -245,6 +291,10 @@ export class UserFormComponent implements OnInit {
         this.userForm.setErrors({ cdSubmitButton: true });
       }
     );
+  }
+
+  clearExpirationDate() {
+    this.userForm.get('pwdExpirationDate').setValue(undefined);
   }
 
   submit() {

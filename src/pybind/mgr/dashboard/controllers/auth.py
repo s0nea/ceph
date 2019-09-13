@@ -3,10 +3,11 @@ from __future__ import absolute_import
 
 import cherrypy
 
-from . import ApiController, RESTController
+from . import ApiController, RESTController, ReadPermission, Endpoint
 from .. import logger, mgr
 from ..exceptions import DashboardException
 from ..services.auth import AuthManager, JwtManager
+from ..settings import Settings
 
 
 @ApiController('/auth', secure=False)
@@ -16,7 +17,11 @@ class Auth(RESTController):
     """
 
     def create(self, username, password):
-        user_perms = AuthManager.authenticate(username, password)
+        user_data = AuthManager.authenticate(username, password)
+        user_perms, pwd_expiration_date = None, None
+        if user_data:
+            user_perms, pwd_expiration_date = user_data.values()
+
         if user_perms is not None:
             logger.debug('Login successful')
             token = JwtManager.gen_token(username)
@@ -26,6 +31,7 @@ class Auth(RESTController):
                 'token': token,
                 'username': username,
                 'permissions': user_perms,
+                'pwdExpirationDate': pwd_expiration_date,
                 'sso': mgr.SSO_DB.protocol == 'saml2'
             }
 
@@ -63,4 +69,13 @@ class Auth(RESTController):
                 }
         return {
             'login_url': self._get_login_url(),
+        }
+
+    @Endpoint()
+    @ReadPermission
+    def pwd_expiration_settings(self):
+        return {
+            'user_pwd_expiration_span': Settings.USER_PWD_EXPIRATION_SPAN,
+            'user_pwd_expiration_warning_1': Settings.USER_PWD_EXPIRATION_WARNING_1,
+            'user_pwd_expiration_warning_2': Settings.USER_PWD_EXPIRATION_WARNING_2
         }

@@ -2,6 +2,9 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
 
+import { Observable } from 'rxjs';
+
+import { CdPwdExpirationSettings } from '../models/cd-pwd-expiration-settings';
 import { Credentials } from '../models/credentials';
 import { LoginResponse } from '../models/login-response';
 import { AuthStorageService } from '../services/auth-storage.service';
@@ -26,7 +29,13 @@ export class AuthService {
       .post('api/auth', credentials)
       .toPromise()
       .then((resp: LoginResponse) => {
-        this.authStorageService.set(resp.username, resp.token, resp.permissions, resp.sso);
+        this.authStorageService.set(
+          resp.username,
+          resp.token,
+          resp.permissions,
+          resp.sso,
+          resp.pwdExpirationDate
+        );
       });
   }
 
@@ -39,5 +48,9 @@ export class AuthService {
       }
       window.location.replace(resp.redirect_url);
     });
+  }
+
+  pwdExpirationSettings(): Observable<CdPwdExpirationSettings> {
+    return this.http.get<CdPwdExpirationSettings>('api/auth/pwd_expiration_settings');
   }
 }

@@ -6,6 +6,7 @@ import { Router, Routes } from '@angular/router';
 import { RouterTestingModule } from '@angular/router/testing';
 
 import { ButtonsModule } from 'ngx-bootstrap/buttons';
+import { BsDatepickerModule } from 'ngx-bootstrap/datepicker';
 import { BsModalService } from 'ngx-bootstrap/modal';
 import { ToastrModule } from 'ngx-toastr';
 import { of } from 'rxjs';
@@ -50,7 +51,8 @@ describe('UserFormComponent', () => {
         ComponentsModule,
         ToastrModule.forRoot(),
         SharedModule,
-        ButtonsModule.forRoot()
+        ButtonsModule.forRoot(),
+        BsDatepickerModule.forRoot()
       ],
       declarations: [UserFormComponent, FakeComponent],
       providers: i18nProviders
@@ -85,9 +87,15 @@ describe('UserFormComponent', () => {
     });
 
     it('should not disable fields', () => {
-      ['username', 'name', 'password', 'confirmpassword', 'email', 'roles'].forEach((key) =>
-        expect(form.get(key).disabled).toBeFalsy()
-      );
+      [
+        'username',
+        'name',
+        'password',
+        'confirmpassword',
+        'email',
+        'roles',
+        'pwdExpirationDate'
+      ].forEach((key) => expect(form.get(key).disabled).toBeFalsy());
     });
 
     it('should validate username required', () => {
@@ -151,7 +159,8 @@ describe('UserFormComponent', () => {
         name: 'User 0',
         email: 'user0@email.com',
         roles: ['administrator'],
-        enabled: true
+        enabled: true,
+        pwdExpirationDate: undefined
       };
       formHelper.setMultipleValues(user);
       formHelper.setValue('confirmpassword', user.password);
@@ -171,7 +180,8 @@ describe('UserFormComponent', () => {
       name: 'User 1',
       email: 'user1@email.com',
       roles: ['administrator'],
-      enabled: true
+      enabled: true,
+      pwdExpirationDate: undefined
     };
     const roles = [
       {

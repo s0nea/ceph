@@ -99,6 +99,35 @@
           </div>
         </div>
 
+        <!-- Password expiration date -->
+        <div class="form-group row"
+             *ngIf="showExpirationDateField()">
+          <label i18n
+                 class="col-form-label col-sm-3"
+                 for="pwdExpirationDate">Password expiration date</label>
+          <div class="col-sm-9">
+            <div class="input-group">
+              <input type="text"
+                     class="form-control"
+                     i18n-placeholder
+                     placeholder="Password expiration date..."
+                     [bsConfig]="bsConfig"
+                     [minDate]="minDate"
+                     bsDatepicker
+                     id="pwdExpirationDate"
+                     name="pwdExpirationDate"
+                     formControlName="pwdExpirationDate">
+              <span class="input-group-append">
+                <button type="button"
+                        class="btn btn-light"
+                        (click)="clearExpirationDate()">
+                  <i class="icon-prepend {{ icons.destroy }}"></i>
+                </button>
+              </span>
+            </div>
+          </div>
+        </div>
+
         <!-- Name -->
         <div class="form-group row">
           <label i18n
