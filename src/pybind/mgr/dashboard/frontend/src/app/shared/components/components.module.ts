@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { NgModule } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { RouterModule } from '@angular/router';
 
 import { NgBootstrapFormValidationModule } from 'ng-bootstrap-form-validation';
 import { ChartsModule } from 'ng2-charts';
@@ -24,6 +25,7 @@ import { LanguageSelectorComponent } from './language-selector/language-selector
 import { LoadingPanelComponent } from './loading-panel/loading-panel.component';
 import { ModalComponent } from './modal/modal.component';
 import { NotificationsSidebarComponent } from './notifications-sidebar/notifications-sidebar.component';
+import { PwdExpiryNotificationComponent } from './pwd-expiry-notification/pwd-expiry-notification.component';
 import { RefreshSelectorComponent } from './refresh-selector/refresh-selector.component';
 import { SelectBadgesComponent } from './select-badges/select-badges.component';
 import { SelectComponent } from './select/select.component';
@@ -47,7 +49,8 @@ import { ViewCacheComponent } from './view-cache/view-cache.component';
     ModalModule.forRoot(),
     DirectivesModule,
     BsDropdownModule,
-    NgBootstrapFormValidationModule
+    NgBootstrapFormValidationModule,
+    RouterModule
   ],
   declarations: [
     ViewCacheComponent,
@@ -67,7 +70,8 @@ import { ViewCacheComponent } from './view-cache/view-cache.component';
     BackButtonComponent,
     RefreshSelectorComponent,
     ConfigOptionComponent,
-    AlertPanelComponent
+    AlertPanelComponent,
+    PwdExpiryNotificationComponent
   ],
   providers: [],
   exports: [
@@ -86,7 +90,8 @@ import { ViewCacheComponent } from './view-cache/view-cache.component';
     SelectComponent,
     RefreshSelectorComponent,
     ConfigOptionComponent,
-    AlertPanelComponent
+    AlertPanelComponent,
+    PwdExpiryNotificationComponent
   ],
   entryComponents: [ModalComponent, CriticalConfirmationModalComponent, ConfirmationModalComponent]
 })
