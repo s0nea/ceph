@@ -263,9 +263,7 @@ class User(object):
         if Settings.USER_PWD_DEFAULT_EXPIRY_SPAN > 0:
             expiry_date = datetime.utcnow() + timedelta(
                 days=Settings.USER_PWD_DEFAULT_EXPIRY_SPAN)
-            # python3
-            # self.pwd_expiry_date = int(datetime.timestamp(expiry_date))
-            self.pwd_expiry_date = int(time.mktime(expiry_date.timetuple()))
+            self.pwd_expiry_date = int(datetime.timestamp(expiry_date))
 
     @property
     def enabled(self):
@@ -297,9 +295,7 @@ class User(object):
 
     def is_pwd_expired(self):
         if self.pwd_expiry_date:
-            # python3
-            # current_time = datetime.timestamp(datetime.utcnow())
-            current_time = int(time.mktime(datetime.utcnow().timetuple()))
+            current_time = datetime.timestamp(datetime.utcnow())
             return self.pwd_expiry_date < current_time
         return False
 
@@ -397,10 +393,7 @@ class AccessControlDB(object):
         with self.lock:
             if username in self.users:
                 raise UserAlreadyExists(username)
-            # python3
-            # if pwd_expiry_date and (pwd_expiry_date < datetime.timestamp(datetime.utcnow())):
-            if pwd_expiry_date and \
-               (pwd_expiry_date < int(time.mktime(datetime.utcnow().timetuple()))):
+            if pwd_expiry_date and (pwd_expiry_date < datetime.timestamp(datetime.utcnow())):
                 raise PwdExpiryDateNotValid()
             user = User(username, password_hash(password), name, email, enabled=enabled,
                         pwd_expiry_date=pwd_expiry_date)

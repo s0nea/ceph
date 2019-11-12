@@ -259,11 +259,7 @@ class UserTest(DashboardTestCase):
         self.login('admin', 'admin')
 
     def test_create_user_with_pwd_expiry_date(self):
-        # python3
-        # future_date = int(datetime.timestamp(datetime.utcnow() + timedelta(days=10)))
-        future_date = datetime.utcnow() + timedelta(days=10)
-        future_date = int(time.mktime(future_date.timetuple()))
-
+        future_date = int(datetime.timestamp(datetime.utcnow() + timedelta(days=10)))
         self._create_user(username='user1',
                           password='mypassword10#',
                           name='My Name',
@@ -287,11 +283,7 @@ class UserTest(DashboardTestCase):
         self._delete('/api/user/user1')
 
     def test_create_with_pwd_expiry_date_not_valid(self):
-        # python3
-        # past_date = int(datetime.timestamp(datetime.utcnow() - timedelta(days=10)))
-        past_date = datetime.utcnow() - timedelta(days=10)
-        past_date = int(time.mktime(past_date.timetuple()))
-
+        past_date = int(datetime.timestamp(datetime.utcnow() - timedelta(days=10)))
         self._create_user(username='user1',
                           password='mypassword10#',
                           name='My Name',
@@ -302,14 +294,8 @@ class UserTest(DashboardTestCase):
         self.assertError(code='pwd_past_expiry_date', component='user')
 
     def test_create_with_default_expiry_date(self):
-        # python3
-        # future_date_1 = int(datetime.timestamp(datetime.utcnow() + timedelta(days=10)))
-        # future_date_2 = int(datetime.timestamp(datetime.utcnow() + timedelta(days=11)))
-        future_date_1 = datetime.utcnow() + timedelta(days=10)
-        future_date_1 = int(time.mktime(future_date_1.timetuple()))
-        future_date_2 = datetime.utcnow() + timedelta(days=11)
-        future_date_2 = int(time.mktime(future_date_2.timetuple()))
-
+        future_date_1 = int(datetime.timestamp(datetime.utcnow() + timedelta(days=10)))
+        future_date_2 = int(datetime.timestamp(datetime.utcnow() + timedelta(days=11)))
         self._ceph_cmd(['dashboard', 'set-user-pwd-default-expiry-span', '10'])
         self._create_user(username='user1',
                           password='mypassword10#',
