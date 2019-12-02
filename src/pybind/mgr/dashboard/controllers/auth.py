@@ -17,9 +17,15 @@ class Auth(RESTController):
 
     def create(self, username, password):
         user_data = AuthManager.authenticate(username, password)
+        logger.error('### USER DATA ###')
+        logger.error(user_data)
         user_perms, pwd_expiration_date = None, None
         if user_data:
             user_perms, pwd_expiration_date = user_data.values()
+        logger.error('### USER_PERMS ###')
+        logger.error(user_perms)
+        logger.error('### PWD EXPIRATION DATE ###')
+        logger.error(pwd_expiration_date)
 
         if user_perms is not None:
             logger.debug('Login successful')
