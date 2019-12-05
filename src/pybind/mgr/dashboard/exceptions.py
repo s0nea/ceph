@@ -107,5 +107,5 @@ class GrafanaError(Exception):
     pass
 
 
-class PasswordCheckException(Exception):
+class PasswordPolicyException(Exception):
     pass

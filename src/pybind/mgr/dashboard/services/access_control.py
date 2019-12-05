@@ -21,7 +21,7 @@ from ..security import Scope, Permission
 from ..exceptions import RoleAlreadyExists, RoleDoesNotExist, ScopeNotValid, \
                          PermissionNotValid, RoleIsAssociatedWithUser, \
                          UserAlreadyExists, UserDoesNotExist, ScopeNotInRole, \
-                         RoleNotInUser, PasswordCheckException
+                         RoleNotInUser, PasswordPolicyException
 
 
 logger = logging.getLogger('access_control')
@@ -41,13 +41,13 @@ def password_hash(password, salt_password=None):
 _P = Permission  # short alias
 
 
-class PasswordCheck(object):
-    def __init__(self, password, username, old_password=None):
+class PasswordPolicy(object):
+    def __init__(self, password, username=None, old_password=None):
         """
         :param password: The new plain password.
         :type password: str
         :param username: The name of the user.
-        :type username: str
+        :type username: str | None
         :param old_password: The old plain password.
         :type old_password: str | None
         """
@@ -70,6 +70,7 @@ class PasswordCheck(object):
         big_letter_credit = 2
         special_character_credit = 3
         other_character_credit = 5
+        self.complexity_credits = 0
         for ch in self.password:
             if ch in ascii_uppercase:
                 self.complexity_credits += big_letter_credit
@@ -87,6 +88,8 @@ class PasswordCheck(object):
         return self.old_password and self.password == self.old_password
 
     def check_if_contains_username(self):
+        if not self.username:
+            return False
         return self._check_if_contains_word(self.password, self.username)
 
     def check_if_contains_forbidden_words(self):
@@ -106,23 +109,26 @@ class PasswordCheck(object):
                 return True
         return False
 
+    def check_password_length(self, min_length=8):
+        return len(self.password) >= min_length
+
     def check_all(self):
         """
         Perform all password policy checks.
-        :raise PasswordCheckException: If a password policy check fails.
+        :raise PasswordPolicyException: If a password policy check fails.
         """
+        if self.check_password_characters() < 10 or not self.check_password_length():
+            raise PasswordPolicyException('Password is too weak.')
         if self.check_is_old_password():
-            raise PasswordCheckException('Password cannot be the same as the previous one.')
+            raise PasswordPolicyException('Password cannot be the same as the previous one.')
         if self.check_if_contains_username():
-            raise PasswordCheckException('Password cannot contain username.')
+            raise PasswordPolicyException('Password cannot contain username.')
         if self.check_if_contains_forbidden_words():
-            raise PasswordCheckException('Password cannot contain keywords.')
+            raise PasswordPolicyException('Password cannot contain keywords.')
         if self.check_if_repetetive_characters():
-            raise PasswordCheckException('Password cannot contain repetitive characters.')
+            raise PasswordPolicyException('Password cannot contain repetitive characters.')
         if self.check_if_sequential_characters():
-            raise PasswordCheckException('Password cannot contain sequential characters.')
-        if self.check_password_characters() < 10:
-            raise PasswordCheckException('Password is too weak.')
+            raise PasswordPolicyException('Password cannot contain sequential characters.')
 
 
 class Role(object):
@@ -657,10 +663,10 @@ def ac_user_create_cmd(_, username, password=None, rolename=None, name=None,
 
     try:
         if not force_password:
-            pw_check = PasswordCheck(password, username)
+            pw_check = PasswordPolicy(password, username)
             pw_check.check_all()
         user = mgr.ACCESS_CTRL_DB.create_user(username, password, name, email, enabled)
-    except PasswordCheckException as ex:
+    except PasswordPolicyException as ex:
         return -errno.EINVAL, '', str(ex)
     except UserAlreadyExists as ex:
         return -errno.EEXIST, '', str(ex)
@@ -791,12 +797,12 @@ def ac_user_set_password(_, username, password, force_password=False):
     try:
         user = mgr.ACCESS_CTRL_DB.get_user(username)
         if not force_password:
-            pw_check = PasswordCheck(password, user.name)
+            pw_check = PasswordPolicy(password, user.name)
             pw_check.check_all()
         user.set_password(password)
         mgr.ACCESS_CTRL_DB.save()
         return 0, json.dumps(user.to_dict()), ''
-    except PasswordCheckException as ex:
+    except PasswordPolicyException as ex:
         return -errno.EINVAL, '', str(ex)
     except UserDoesNotExist as ex:
         return -errno.ENOENT, '', str(ex)

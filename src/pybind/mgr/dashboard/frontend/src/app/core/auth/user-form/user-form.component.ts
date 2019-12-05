@@ -1,5 +1,5 @@
 import { Component, OnInit, TemplateRef, ViewChild } from '@angular/core';
-import { FormControl, Validators } from '@angular/forms';
+import { Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 
 import { I18n } from '@ngx-translate/i18n-polyfill';
@@ -14,11 +14,12 @@ import { SelectMessages } from '../../../shared/components/select/select-message
 import { ActionLabelsI18n } from '../../../shared/constants/app.constants';
 import { Icons } from '../../../shared/enum/icons.enum';
 import { NotificationType } from '../../../shared/enum/notification-type.enum';
+import { CdFormBuilder } from '../../../shared/forms/cd-form-builder';
 import { CdFormGroup } from '../../../shared/forms/cd-form-group';
 import { CdValidators } from '../../../shared/forms/cd-validators';
 import { AuthStorageService } from '../../../shared/services/auth-storage.service';
 import { NotificationService } from '../../../shared/services/notification.service';
-import { UserChangePasswordService } from '../../../shared/services/user-change-password.service';
+import { PasswordPolicyService } from '../../../shared/services/password-policy.service';
 import { UserFormMode } from './user-form-mode.enum';
 import { UserFormRoleModel } from './user-form-role.model';
 import { UserFormModel } from './user-form.model';
@@ -43,9 +44,9 @@ export class UserFormComponent implements OnInit {
   messages = new SelectMessages({ empty: this.i18n('There are no roles.') }, this.i18n);
   action: string;
   resource: string;
-  requiredPasswordRulesMessage: string;
-  passwordStrengthLevel: string;
-  passwordStrengthDescription: string;
+  passwordPolicyHelpText: string;
+  passwordStrengthLevelClass: string;
+  passwordValuation: string;
   icons = Icons;
 
   constructor(
@@ -59,7 +60,8 @@ export class UserFormComponent implements OnInit {
     private notificationService: NotificationService,
     private i18n: I18n,
     public actionLabels: ActionLabelsI18n,
-    private userChangePasswordService: UserChangePasswordService
+    private passwordPolicyService: PasswordPolicyService,
+    private formBuilder: CdFormBuilder
   ) {
     this.resource = this.i18n('user');
     this.createForm();
@@ -67,31 +69,31 @@ export class UserFormComponent implements OnInit {
   }
 
   createForm() {
-    this.requiredPasswordRulesMessage = this.userChangePasswordService.getPasswordRulesMessage();
-    this.userForm = new CdFormGroup(
+    this.passwordPolicyHelpText = this.passwordPolicyService.getHelpText();
+    this.userForm = this.formBuilder.group(
       {
-        username: new FormControl('', {
-          validators: [Validators.required]
-        }),
-        name: new FormControl(''),
-        password: new FormControl('', {
-          validators: [
-            CdValidators.custom('checkPassword', () => {
-              return this.userForm && this.checkPassword(this.userForm.getValue('password'));
-            })
+        username: ['', [Validators.required]],
+        name: [''],
+        password: [
+          '',
+          [],
+          [
+            CdValidators.passwordPolicy(
+              this.userService,
+              () => this.userForm.getValue('username'),
+              (_valid: boolean, credits: number, valuation: string) => {
+                this.passwordStrengthLevelClass = this.passwordPolicyService.mapCreditsToCssClass(
+                  credits
+                );
+                this.passwordValuation = _.defaultTo(valuation, '');
+              }
+            )
           ]
-        }),
-        confirmpassword: new FormControl('', {
-          updateOn: 'blur',
-          validators: []
-        }),
-        email: new FormControl('', {
-          validators: [Validators.email]
-        }),
-        roles: new FormControl([]),
-        enabled: new FormControl(true, {
-          validators: [Validators.required]
-        })
+        ],
+        confirmpassword: [''],
+        email: ['', [CdValidators.email]],
+        roles: [[]],
+        enabled: [true, [Validators.required]]
       },
       {
         validators: [CdValidators.match('password', 'confirmpassword')]
@@ -182,14 +184,6 @@ export class UserFormComponent implements OnInit {
     } else {
       this.doEditAction();
     }
-  }
-
-  checkPassword(password: string) {
-    [
-      this.passwordStrengthLevel,
-      this.passwordStrengthDescription
-    ] = this.userChangePasswordService.checkPasswordComplexity(password);
-    return password && this.passwordStrengthLevel === 'passwordStrengthLevel0';
   }
 
   public isCurrentUser(): boolean {
