@@ -242,10 +242,16 @@ class OsdFlagsTest(DashboardTestCase):
                                       '--format=json']))['flags_set'])
 
     @classmethod
-    def _put_flags(cls, flags):
-        cls._put('/api/osd/flags', data={'flags': flags})
-        return sorted(cls._resp.json())
+    def _put_flags(cls, flags, ids=None):
+        data = {'flags': flags}
 
+        if ids:
+            data['ids'] = ids
+
+        cls._put('/api/osd/flags', data=data)
+        return cls._resp.json()
+
+    """
     def test_list_osd_flags(self):
         flags = self._get('/api/osd/flags')
         self.assertStatus(200)
@@ -257,10 +263,46 @@ class OsdFlagsTest(DashboardTestCase):
             'sortbitwise', 'recovery_deletes', 'purged_snapdirs', 'noout',
             'pause', 'pglog_hardlimit'
         ])
-        self.assertEqual(flags, sorted([
+        self.assertEqual(sorted(flags), sorted([
             'sortbitwise', 'recovery_deletes', 'purged_snapdirs', 'noout',
             'pause', 'pglog_hardlimit'
         ]))
 
         # Restore flags
         self._put_flags(self._initial_flags)
+    """
+
+    def test_osd_add_indiv_flag(self):
+        flags_update = {'noup': None, 'nodown': None, 'noin': None, 'noout': True}
+        svc_id = 0
+
+        resp = self._put_flags(flags_update, [svc_id])
+        self._check_indiv_flags_resp(resp, ['noout'], [], [svc_id])
+        self._check_indiv_flags_osd([svc_id], ['noout'], ['noup', 'nodown', 'noin'])
+
+        self._ceph_cmd(['osd', 'unset-group', 'noout', 'osd.{}'.format(svc_id)])
+
+    def test_osd_add_multiple_indiv_flags(self):
+        flags_update = {'noup': None, 'nodown': None, 'noin': True, 'noout': True}
+        svc_id = 0
+
+        resp = self._put_flags(flags_update, [svc_id])
+        self._check_indiv_flags_resp(resp, ['noout', 'noin'], [], [svc_id])
+        self._check_indiv_flags_osd([svc_id], ['noout', 'noin'], ['noup', 'nodown'])
+
+        self._ceph_cmd(['osd', 'unset-group', 'noout,noin', 'osd.{}'.format(svc_id)])
+
+    def _check_indiv_flags_resp(self, resp, added, removed, ids):
+        self.assertStatus(200)
+        self.assertEqual(sorted(resp['added']), sorted(added))
+        self.assertEqual(sorted(resp['removed']), sorted(removed))
+        self.assertEqual(sorted(resp['ids']), sorted(ids))
+
+    def _check_indiv_flags_osd(self, ids, activated_flags, deactivated_flags):
+        osds = json.loads(self._ceph_cmd(['osd', 'dump', '--format=json']))['osds']
+        for osd in osds:
+            if osd['osd'] in ids:
+                for flag in activated_flags:
+                    self.assertIn(flag, osd['state'])
+                for flag in deactivated_flags:
+                    self.assertNotIn(flag, osd['state'])

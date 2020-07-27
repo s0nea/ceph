@@ -377,27 +377,62 @@ class OsdFlagsController(RESTController):
                 set(enabled_flags) - {'pauserd', 'pausewr'} | {'pause'})
         return sorted(enabled_flags)
 
+    @staticmethod
+    def _update_flags(action, flags, ids=None):
+        if ids:
+            if flags:
+                ids = list(map(str, ids))
+                CephService.send_command('mon', 'osd ' + action, who=ids,
+                                         flags=','.join(flags))
+        else:
+            for flag in flags:
+                CephService.send_command('mon', 'osd ' + action, '', key=flag)
+
     @EndpointDoc("Display OSD Flags",
                  responses={200: EXPORT_FLAGS_SCHEMA})
     def list(self):
         return self._osd_flags()
 
-    def bulk_set(self, flags):
-        """
-        The `recovery_deletes`, `sortbitwise` and `pglog_hardlimit` flags cannot be unset.
-        `purged_snapshots` cannot even be set. It is therefore required to at
-        least include those four flags for a successful operation.
-        """
-        assert isinstance(flags, list)
+    def bulk_set(self, flags, ids=None):
+        if ids:
+            assert isinstance(flags, dict)
+            assert isinstance(ids, list)
+            # These are to only flags that can be applied to an OSD individually.
+            all_flags = {'noin', 'noout', 'nodown', 'noup'}
+            added = set()
+            removed = set()
+            for flag, activated in flags.items():
+                if flag in all_flags:
+                    if activated is not None:
+                        if activated:
+                            added.add(flag)
+                        else:
+                            removed.add(flag)
 
-        enabled_flags = set(self._osd_flags())
-        data = set(flags)
-        added = data - enabled_flags
-        removed = enabled_flags - data
-        for flag in added:
-            CephService.send_command('mon', 'osd set', '', key=flag)
-        for flag in removed:
-            CephService.send_command('mon', 'osd unset', '', key=flag)
-        logger.info('Changed OSD flags: added=%s removed=%s', added, removed)
+            self._update_flags('set-group', added, ids)
+            self._update_flags('unset-group', removed, ids)
 
-        return sorted(enabled_flags - removed | added)
+            logger.error('Changed individual OSD flags: added=%s removed=%s for ids=%s',
+                         added, removed, ids)
+
+            return {'added': sorted(added),
+                    'removed': sorted(removed),
+                    'ids': ids}
+        else:
+            """
+            The `recovery_deletes`, `sortbitwise` and `pglog_hardlimit` flags cannot be unset.
+            `purged_snapshots` cannot even be set. It is therefore required to at
+            least include those four flags for a successful operation.
+            """
+            assert isinstance(flags, list)
+            enabled_flags = set(self._osd_flags())
+            data = set(flags)
+            added = data - enabled_flags
+            removed = enabled_flags - data
+
+            self._update_flags('set', added)
+            self._update_flags('unset', removed)
+
+            logger.info('Changed OSD flags: added=%s removed=%s', added, removed)
+
+            return sorted(enabled_flags - removed | added)

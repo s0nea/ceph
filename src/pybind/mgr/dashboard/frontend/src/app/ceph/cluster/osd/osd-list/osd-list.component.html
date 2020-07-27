@@ -74,6 +74,13 @@
   <strong>{{ actionDescription }}</strong> if you proceed.</ng-container>
 </ng-template>
 
+<ng-template #indivFlagsTpl
+             let-value="value">
+  <div *ngFor="let flag of filterIndivFlags(value);">
+    <span class="badge badge-info">{{ flag }}</span>
+  </div>
+</ng-template>
+
 <ng-template #osdUsageTpl
              let-row="row">
   <cd-usage-bar [total]="row.stats.stat_bytes"
