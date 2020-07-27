@@ -227,6 +227,70 @@ class OsdTest(DashboardTestCase):
             }))
         })))
 
+    def _get_flags(self, svc_id=0):
+        flags = self._get('/api/osd/{}'.format(svc_id))['osd_map']['state']
+        self.assertStatus(200)
+        return flags
+
+    def _put_flags(self, flags, svc_id=0):
+        self._put('/api/osd/{}/flags'.format(svc_id), data={'flags': flags})
+        self.assertStatus(200)
+        self.assertEqual(self._resp.json(), sorted(flags))
+
+    def test_osd_add_flag(self):
+        flag = ['noout']
+        svc_id = 0
+        initial_flags = self._get_flags()
+
+        self._put_flags(flag)
+
+        updated_flags = self._get_flags()
+        initial_flags.extend(flag)
+        self.assertEqual(updated_flags, sorted(initial_flags))
+
+        self._ceph_cmd(['osd', 'unset-group', flag[0], 'osd.{}'.format(svc_id)])
+
+    def test_osd_add_multiple_flags(self):
+        flags = ['noout', 'noin']
+        svc_id = 0
+        initial_flags = self._get_flags()
+
+        self._put_flags(flags)
+
+        updated_flags = self._get_flags()
+        initial_flags.extend(flags)
+        self.assertEqual(updated_flags, sorted(initial_flags))
+
+        self._ceph_cmd(['osd', 'unset-group', ','.join(flags),
+                        'osd.{}'.format(svc_id)])
+
+    def test_osd_unset_flag(self):
+        flag = ['noout']
+        svc_id = 0
+        self._ceph_cmd(['osd', 'set-group', flag[0], 'osd.{}'.format(svc_id)])
+
+        initial_flags = self._get_flags()
+        self.assertIn(flag[0], initial_flags)
+
+        self._put_flags([])
+
+        updated_flags = self._get_flags()
+        self.assertNotIn(flag[0], updated_flags)
+
+    def test_osd_unset_multiple_flags(self):
+        flags = ['noout', 'noin']
+        svc_id = 0
+        self._ceph_cmd(['osd', 'set-group', ','.join(flags), 'osd.{}'.format(svc_id)])
+
+        initial_flags = self._get_flags()
+        for flag in flags:
+            self.assertIn(flag, initial_flags)
+
+        self._put_flags([])
+        updated_flags = self._get_flags()
+        for flag in flags:
+            self.assertNotIn(flag, updated_flags)
+
 
 class OsdFlagsTest(DashboardTestCase):
     def __init__(self, *args, **kwargs):

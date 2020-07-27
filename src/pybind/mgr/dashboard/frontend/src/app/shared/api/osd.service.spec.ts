@@ -99,6 +99,13 @@ describe('OsdService', () => {
     expect(req.request.body).toEqual({ flags: ['foo'] });
   });
 
+  it('should call updateIndividualFlags', () => {
+    service.updateIndividualFlags(0, ['foo', 'bar']).subscribe();
+    const req = httpTesting.expectOne('api/osd/0/flags');
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual({ flags: ['foo', 'bar'] });
+  });
+
   it('should mark the OSD out', () => {
     service.markOut(1).subscribe();
     const req = httpTesting.expectOne('api/osd/1/mark_out');

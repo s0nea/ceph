@@ -143,6 +143,26 @@ class Osd(RESTController):
                     'ids': [svc_id]
                 })
 
+    @RESTController.Resource('PUT')
+    def flags(self, svc_id, flags):
+        assert isinstance(flags, list)
+
+        # These are to only flags that can be applied to an OSD individually.
+        all_flags = ['noup', 'nodown', 'noin', 'noout']
+        # Get already activated flags and filter relevant ones
+        flags_set = self.get_osd_map(svc_id)['state']
+        flags_set = {flag for flag in flags_set if flag in all_flags}
+
+        # Get current changes
+        update = {'set-group': set(flags) - flags_set,
+                  'unset-group': flags_set - set(flags)}
+
+        for action, flags_update in update.items():
+            if flags_update:
+                CephService.send_command('mon', 'osd ' + action, who=[svc_id],
+                                         flags=','.join(flags_update))
+        return sorted(flags_set - update['unset-group'] | update['set-group'])
+
     def _check_delete(self, osd_ids):
         # type: (List[str]) -> Dict[str, Any]
         """
