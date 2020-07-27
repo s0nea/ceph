@@ -99,8 +99,8 @@ export class OsdService {
     return this.http.get(`${this.path}/flags`);
   }
 
-  updateFlags(flags: string[]) {
-    return this.http.put(`${this.path}/flags`, { flags: flags });
+  updateFlags(flags: string[] | { [flag: string]: boolean }, ids?: number[]) {
+    return this.http.put(`${this.path}/flags`, { flags: flags, ids: ids });
   }
 
   markOut(id: number) {

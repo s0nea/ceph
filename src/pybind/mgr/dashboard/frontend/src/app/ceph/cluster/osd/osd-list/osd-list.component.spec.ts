@@ -169,6 +169,7 @@ describe('OsdListComponent', () => {
 
     beforeEach(() => {
       spyOn(osdService, 'getList').and.callFake(() => of(osds));
+      spyOn(osdService, 'getFlags').and.callFake(() => of([]));
       osds = [createOsd(1), createOsd(2), createOsd(3)];
       component.getOsdList();
     });
@@ -217,6 +218,29 @@ describe('OsdListComponent', () => {
     it('should have custom attribute "cdIsBinary" to be true', () => {
       expectAttributeOnEveryOsd('cdIsBinary');
       expect(component.osds[0].cdIsBinary).toBe(true);
+    });
+  });
+
+  describe('filterIndivFlags', () => {
+    it('should return valid individual flags only', () => {
+      component.clusterWideFlags = [];
+      let flags = component.filterIndivFlags(['noup', 'exists', 'up']);
+      expect(flags).toStrictEqual(['noup']);
+
+      flags = component.filterIndivFlags(['noup', 'exists', 'up', 'noin']);
+      expect(flags).toStrictEqual(['noup', 'noin']);
+    });
+
+    it('should ignore activated cluster wide flags', () => {
+      component.clusterWideFlags = ['noup'];
+      const flags = component.filterIndivFlags(['exists', 'up', 'noin']);
+      expect(flags).toStrictEqual(['noin']);
+    });
+
+    it('should not fail on empty individual flags list', () => {
+      component.clusterWideFlags = [];
+      const flags = component.filterIndivFlags([]);
+      expect(flags).toStrictEqual([]);
     });
   });
 
@@ -274,6 +298,7 @@ describe('OsdListComponent', () => {
         actions: [
           'Create',
           'Edit',
+          'Individual Flags',
           'Scrub',
           'Deep Scrub',
           'Reweight',
@@ -291,6 +316,7 @@ describe('OsdListComponent', () => {
         actions: [
           'Create',
           'Edit',
+          'Individual Flags',
           'Scrub',
           'Deep Scrub',
           'Reweight',
@@ -316,6 +342,7 @@ describe('OsdListComponent', () => {
       'update,delete': {
         actions: [
           'Edit',
+          'Individual Flags',
           'Scrub',
           'Deep Scrub',
           'Reweight',
@@ -330,7 +357,16 @@ describe('OsdListComponent', () => {
         primary: { multiple: 'Scrub', executing: 'Edit', single: 'Edit', no: 'Edit' }
       },
       update: {
-        actions: ['Edit', 'Scrub', 'Deep Scrub', 'Reweight', 'Mark Out', 'Mark In', 'Mark Down'],
+        actions: [
+          'Edit',
+          'Individual Flags',
+          'Scrub',
+          'Deep Scrub',
+          'Reweight',
+          'Mark Out',
+          'Mark In',
+          'Mark Down'
+        ],
         primary: { multiple: 'Scrub', executing: 'Edit', single: 'Edit', no: 'Edit' }
       },
       delete: {
