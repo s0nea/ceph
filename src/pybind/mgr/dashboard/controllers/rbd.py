@@ -376,13 +376,27 @@ class RbdTrash(RESTController):
                 ioctx.set_namespace(namespace)
                 images = self.rbd_inst.trash_list(ioctx)
                 for trash in images:
-                    trash['pool_name'] = pool_name
-                    trash['namespace'] = namespace
-                    trash['deletion_time'] = "{}Z".format(trash['deletion_time'].isoformat())
-                    trash['deferment_end_time'] = "{}Z".format(
-                        trash['deferment_end_time'].isoformat())
-                    result.append(trash)
+                    result.append(self._get_trashed_img(trash, pool_name, namespace))
+
+                # Also check for partially deleted RBD. This happens for example if the
+                # deletion process of the RBD has been started and was interrupted.
+                rbd_refs = self.rbd_inst.list2(ioctx)
+                for rbd_ref in rbd_refs:
+                    try:
+                        img = self.rbd_inst.trash_get(ioctx, rbd_ref['id'])
+                        result.append(self._get_trashed_img(img, pool_name, namespace))
+                    except rbd.ImageNotFound:
+                        continue
             return result
+
+    @staticmethod
+    def _get_trashed_img(img, pool_name, namespace):
+        img['pool_name'] = pool_name
+        img['namespace'] = namespace
+        img['deletion_time'] = "{}Z".format(img['deletion_time'].isoformat())
+        img['deferment_end_time'] = "{}Z".format(
+            img['deferment_end_time'].isoformat())
+        return img
 
     def _trash_list(self, pool_name=None):
         if pool_name:

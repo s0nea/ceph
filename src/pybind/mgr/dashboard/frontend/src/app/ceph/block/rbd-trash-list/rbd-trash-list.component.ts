@@ -69,7 +69,8 @@ export class RbdTrashListComponent implements OnInit {
       permission: 'update',
       icon: Icons.undo,
       click: () => this.restoreModal(),
-      name: this.actionLabels.RESTORE
+      name: this.actionLabels.RESTORE,
+      disable: () => this.getRestoreDisableDesc()
     };
     const deleteAction: CdTableAction = {
       permission: 'delete',
@@ -135,6 +136,14 @@ export class RbdTrashListComponent implements OnInit {
       itemFilter,
       undefined
     );
+  }
+
+  getRestoreDisableDesc(): string | boolean {
+    const first = this.selection.first();
+    if (first && first.source === 'REMOVING') {
+      return $localize`Can not restore a partially deleted RBD`;
+    }
+    return false;
   }
 
   prepareResponse(resp: any[]): any[] {

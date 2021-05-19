@@ -66,6 +66,19 @@ describe('RbdTrashListComponent', () => {
     expect(component.selection.hasSelection).toBeTruthy();
   });
 
+  it('should disable restore action if selected RBD is partially deleted', () => {
+    component.updateSelection(new CdTableSelection([{ source: 'REMOVING' }]));
+    const disable = component.tableActions[0].disable(undefined);
+    expect(disable).toBeTruthy();
+    expect(disable).toBe('Can not restore a partially deleted RBD');
+  });
+
+  it('should enable restore action if selected RBD has been trashed by user', () => {
+    component.updateSelection(new CdTableSelection([{ source: 'USER' }]));
+    const disable = component.tableActions[0].disable(undefined);
+    expect(disable).toBeFalsy();
+  });
+
   describe('handling of executing tasks', () => {
     let images: any[];
 
