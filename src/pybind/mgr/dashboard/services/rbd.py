@@ -331,13 +331,24 @@ class RbdService(object):
             return stat
 
     @classmethod
-    def _rbd_image_names(cls, ioctx):
+    def _rbd_image_refs(cls, ioctx):
         rbd_inst = rbd.RBD()
-        return rbd_inst.list(ioctx)
+        return rbd_inst.list2(ioctx)
 
     @classmethod
     def _rbd_image_stat(cls, ioctx, pool_name, namespace, image_name):
         return cls._rbd_image(ioctx, pool_name, namespace, image_name)
+
+    @classmethod
+    def _rbd_image_stat_removing(cls, ioctx, pool_name, namespace, image_id):
+        rbd_inst = rbd.RBD()
+        img = rbd_inst.trash_get(ioctx, image_id)
+        img['unique_id'] = get_image_spec(pool_name, namespace, image_id)
+        img['pool_name'] = pool_name
+        img['namespace'] = namespace
+        img['deletion_time'] = "{}Z".format(img['deletion_time'].isoformat())
+        img['deferment_end_time'] = "{}Z".format(img['deferment_end_time'].isoformat())
+        return img
 
     @classmethod
     @ViewCache()
@@ -353,13 +364,19 @@ class RbdService(object):
                 namespaces.append('')
             for current_namespace in namespaces:
                 ioctx.set_namespace(current_namespace)
-                names = cls._rbd_image_names(ioctx)
-                for name in names:
+                image_refs = cls._rbd_image_refs(ioctx)
+                for image_ref in image_refs:
                     try:
-                        stat = cls._rbd_image_stat(ioctx, pool_name, current_namespace, name)
+                        stat = cls._rbd_image_stat(
+                            ioctx, pool_name, current_namespace, image_ref['name'])
                     except rbd.ImageNotFound:
-                        # may have been removed in the meanwhile
-                        continue
+                        # Check if the RBD has been deleted partially. This happens for example if
+                        # the deletion process of the RBD has been started and was interrupted.
+                        try:
+                            stat = cls._rbd_image_stat_removing(
+                                ioctx, pool_name, current_namespace, image_ref['id'])
+                        except rbd.ImageNotFound:
+                            continue
                     result.append(stat)
             return result
 

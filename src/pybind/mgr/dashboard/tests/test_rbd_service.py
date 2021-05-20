@@ -3,13 +3,20 @@
 from __future__ import absolute_import
 
 import unittest
+from datetime import datetime
+from unittest.mock import MagicMock
 
 try:
     import mock
 except ImportError:
     import unittest.mock as mock
 
-from ..services.rbd import RbdConfiguration, get_image_spec, parse_image_spec
+from .. import mgr
+from ..services.rbd import RbdConfiguration, RbdService, get_image_spec, parse_image_spec
+
+
+class ImageNotFoundStub(Exception):
+    pass
 
 
 class RbdServiceTest(unittest.TestCase):
@@ -44,3 +51,73 @@ class RbdServiceTest(unittest.TestCase):
         self.assertEqual(config.list(), [])
         config = RbdConfiguration('good-pool')
         self.assertEqual(config.list(), [1, 2, 3])
+
+    @mock.patch('dashboard.services.rbd.rbd.RBD')
+    def test_rbd_image_stat_removing(self, rbd_mock):
+        time = datetime.utcnow()
+        rbd_inst_mock = rbd_mock.return_value
+        rbd_inst_mock.trash_get.return_value = {
+            'id': '3c1a5ee60a88',
+            'name': 'test_rbd',
+            'source': 'REMOVING',
+            'deletion_time': time,
+            'deferment_end_time': time
+        }
+
+        ioctx_mock = MagicMock()
+
+        # pylint: disable=protected-access
+        rbd = RbdService._rbd_image_stat_removing(ioctx_mock, 'test_pool', '', '3c1a5ee60a88')
+        self.assertEqual(rbd, {
+            'id': '3c1a5ee60a88',
+            'unique_id': 'test_pool/3c1a5ee60a88',
+            'name': 'test_rbd',
+            'source': 'REMOVING',
+            'deletion_time': '{}Z'.format(time.isoformat()),
+            'deferment_end_time': '{}Z'.format(time.isoformat()),
+            'pool_name': 'test_pool',
+            'namespace': ''
+        })
+
+    @mock.patch('dashboard.services.rbd.RbdService._rbd_image_stat_removing')
+    @mock.patch('dashboard.services.rbd.RbdService._rbd_image_stat')
+    @mock.patch('dashboard.services.rbd.RbdService._rbd_image_refs')
+    @mock.patch('dashboard.services.rbd.rbd.ImageNotFound', new_callable=lambda: ImageNotFoundStub)
+    @mock.patch('dashboard.services.rbd.rbd.RBD')
+    def test_rbd_pool_list(self, rbd_mock, image_not_found_mock, rbd_image_ref_mock,
+                           rbd_image_stat_mock, rbd_image_stat_removing_mock):
+        time = datetime.utcnow()
+
+        ioctx_mock = MagicMock()
+        mgr.rados = MagicMock()
+        mgr.rados.open_ioctx.return_value = ioctx_mock
+
+        rbd_inst_mock = rbd_mock.return_value
+        rbd_inst_mock.namespace_list.return_value = []
+        rbd_image_ref_mock.return_value = [{'name': 'test_rbd', 'id': '3c1a5ee60a88'}]
+
+        image_not_found_mock.side_effect = ImageNotFoundStub
+        rbd_image_stat_mock.side_effect = mock.Mock(side_effect=ImageNotFoundStub)
+
+        rbd_image_stat_removing_mock.return_value = {
+            'id': '3c1a5ee60a88',
+            'unique_id': 'test_pool/3c1a5ee60a88',
+            'name': 'test_rbd',
+            'source': 'REMOVING',
+            'deletion_time': '{}Z'.format(time.isoformat()),
+            'deferment_end_time': '{}Z'.format(time.isoformat()),
+            'pool_name': 'test_pool',
+            'namespace': ''
+        }
+
+        rbd_pool_list = RbdService.rbd_pool_list('test_pool')
+        self.assertEqual(rbd_pool_list, (0, [{
+            'id': '3c1a5ee60a88',
+            'unique_id': 'test_pool/3c1a5ee60a88',
+            'name': 'test_rbd',
+            'source': 'REMOVING',
+            'deletion_time': '{}Z'.format(time.isoformat()),
+            'deferment_end_time': '{}Z'.format(time.isoformat()),
+            'pool_name': 'test_pool',
+            'namespace': ''
+        }]))
